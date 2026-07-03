@@ -11,6 +11,23 @@ env:
   PYTHONPATH: ${{ github.workspace }}
 
 jobs:
+  render_bench:
+    name: render bench
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+    - run: ./tools/op.sh setup
+    - name: Install MetaDrive
+      run: uv pip install "metadrive-simulator @ git+https://github.com/commaai/metadrive.git@minimal"
+    - name: Render bench (all variants, same runner)
+      timeout-minutes: 35
+      run: |
+        source openpilot/selfdrive/test/setup_xvfb.sh
+        python3 openpilot/tools/sim/tests/render_bench.py
+
   simulator_driving:
     name: sim driving (${{ matrix.name }})
     runs-on: ubuntu-24.04
