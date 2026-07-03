@@ -59,14 +59,28 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
     loadPrcFileData("", "framebuffer-multisample 0")
     loadPrcFileData("", "multisamples 0")
 
-  if os.environ.get("METADRIVE_TERRAIN_TRIANGLE_WIDTH"):
-    # the terrain is flat, so large screen-space triangles are visually
-    # identical while dividing vertex-shader work by the width ratio squared
+  if os.environ.get("METADRIVE_TERRAIN_TRIANGLE_WIDTH") or os.environ.get("METADRIVE_TERRAIN_CHUNK_SIZE"):
+    # the terrain is flat and extends to the horizon, so every chunk is always
+    # in the frustum: draw-call count (not tessellation) dominates software
+    # rendering cost. Bigger chunks + coarser triangles are visually identical.
+    from metadrive.constants import CameraTagStateKey
     from metadrive.engine.core.terrain import Terrain
-    _gen_orig = Terrain._generate_mesh_vis_terrain
+    from panda3d.core import SamplerState
     def _gen_coarse(self, size, heightfield, attribute_tex, target_triangle_width=10, engine=None):
-      return _gen_orig(self, size, heightfield, attribute_tex,
-                       target_triangle_width=float(os.environ["METADRIVE_TERRAIN_TRIANGLE_WIDTH"]), engine=engine)
+      engine = engine or self.engine
+      heightfield.wrap_u = SamplerState.WM_clamp
+      heightfield.wrap_v = SamplerState.WM_clamp
+      self._mesh_terrain_node.heightfield = heightfield
+      self._mesh_terrain_node.setTargetTriangleWidth(float(os.environ.get("METADRIVE_TERRAIN_TRIANGLE_WIDTH", target_triangle_width)))
+      self._mesh_terrain_node.setChunkSize(int(os.environ.get("METADRIVE_TERRAIN_CHUNK_SIZE", "128")))
+      self._mesh_terrain_node.generate()
+      self._mesh_terrain = self.origin.attach_new_node(self._mesh_terrain_node)
+      self._mesh_terrain.setTag(CameraTagStateKey.Semantic, self.SEMANTIC_LABEL)
+      self._mesh_terrain.setTag(CameraTagStateKey.RGB, self.SEMANTIC_LABEL)
+      self._mesh_terrain.setTag(CameraTagStateKey.Depth, self.SEMANTIC_LABEL)
+      self._set_terrain_shader(engine, attribute_tex)
+      self._mesh_terrain.set_scale(size, size, self._height_scale)
+      self._mesh_terrain.set_pos(-size / 2, -size / 2, 0)
     Terrain._generate_mesh_vis_terrain = _gen_coarse
 
   if os.environ.get("METADRIVE_NO_SHADOWS"):
