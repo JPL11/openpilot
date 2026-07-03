@@ -85,10 +85,27 @@ jobs:
         mkdir -p /tmp/sim_profile
         pidstat -u -h -l 2 > /tmp/sim_profile/pidstat.log &
         PIDSTAT=$!
+        # message-rate probe: which services actually flow, and how fast
+        python3 - > /tmp/sim_profile/rates.log 2>&1 <<'RATES' &
+        import time
+        from openpilot.cereal import messaging
+        SERVICES = ["modelV2", "cameraOdometry", "liveCalibration", "livePose", "liveDelay",
+                    "liveParameters", "liveTorqueParameters", "roadCameraState", "carState", "selfdriveState"]
+        socks = {s: messaging.sub_sock(s, conflate=False) for s in SERVICES}
+        while True:
+          t0 = time.monotonic()
+          counts = dict.fromkeys(SERVICES, 0)
+          while time.monotonic() - t0 < 5:
+            for s, sock in socks.items():
+              counts[s] += len(messaging.drain_sock_raw(sock))
+            time.sleep(0.05)
+          print(time.strftime("%H:%M:%S"), {s: round(c / 5.0, 1) for s, c in counts.items()}, flush=True)
+        RATES
+        RATEPROBE=$!
         # redirect to a file (not tee): orphaned daemons inheriting the step's
         # stdout pipe would otherwise keep the step alive until timeout
         pytest -n0 -s openpilot/tools/sim/tests/test_metadrive_bridge.py > /tmp/sim_profile/pytest.log 2>&1 || true
-        kill $PIDSTAT || true
+        kill $PIDSTAT $RATEPROBE || true
         # kill anything the test teardown missed so later steps don't hang
         pkill -9 -f 'system/manager/manager.py' || true
         pkill -9 -f 'tools/sim' || true
