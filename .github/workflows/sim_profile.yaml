@@ -126,10 +126,22 @@ jobs:
           del socks
         RATES
         RATEPROBE=$!
+        # snapshot logs during the test: pytest's OpenpilotPrefix teardown
+        # deletes ~/.comma<prefix> before any post-step can collect it
+        mkdir -p /tmp/sim_profile/realdata
+        (
+          while true; do
+            cp -ru "$HOME"/.comma*/media/0/realdata/. /tmp/sim_profile/realdata/ 2>/dev/null || true
+            sleep 5
+          done
+        ) &
+        LOGCOPIER=$!
         # redirect to a file (not tee): orphaned daemons inheriting the step's
         # stdout pipe would otherwise keep the step alive until timeout
         pytest -n0 -s openpilot/tools/sim/tests/test_metadrive_bridge.py > /tmp/sim_profile/pytest.log 2>&1 || true
-        kill $PIDSTAT $RATEPROBE || true
+        kill $PIDSTAT $RATEPROBE $LOGCOPIER || true
+        # one final sweep in case anything remains
+        cp -ru "$HOME"/.comma*/media/0/realdata/. /tmp/sim_profile/realdata/ 2>/dev/null || true
         # kill anything the test teardown missed so later steps don't hang
         pkill -9 -f 'system/manager/manager.py' || true
         pkill -9 -f 'tools/sim' || true
@@ -171,7 +183,7 @@ jobs:
           for c in "${cores[@]}"; do
             echo "=== $c ==="
             exe=$(file "$c" | grep -oP "execfn: '\K[^']+") || exe=python3
-            gdb -batch -ex "thread apply all bt" "$exe" "$c" 2>/dev/null | head -60
+            gdb -batch -ex "bt" -ex "thread apply all bt" "$exe" "$c" 2>/dev/null | head -150
           done
         else
           echo "no core dumps"
@@ -179,9 +191,6 @@ jobs:
     - name: Collect openpilot logs
       if: always()
       run: |
-        mkdir -p /tmp/sim_profile/realdata
-        # pytest runs under an OPENPILOT_PREFIX, so the comma dir is suffixed
-        cp -r "$HOME"/.comma*/media/0/realdata/. /tmp/sim_profile/realdata/ 2>/dev/null || echo "no realdata logs"
         ls -laR /tmp/sim_profile/realdata | head -40
         # cores are large; keep only backtraces in artifacts
         rm -f /tmp/sim_profile/core.*
