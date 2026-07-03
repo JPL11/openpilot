@@ -25,10 +25,10 @@ VARIANTS = {
                                 "METADRIVE_NO_SHADOWS": "1"},
   "simple-noshadow-noterrain-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
                                      "METADRIVE_NO_SHADOWS": "1", "METADRIVE_NO_TERRAIN": "1"},
-  "simple-noshadow-quarter":   {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.25",
-                                "METADRIVE_NO_SHADOWS": "1"},
-  "simple-noshadow-noterrain-full": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1",
-                                     "METADRIVE_NO_SHADOWS": "1", "METADRIVE_NO_TERRAIN": "1"},
+  "simple-noshadow-cheapterrain-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
+                                        "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1"},
+  "simple-noshadow-cheapterrain-full": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1",
+                                        "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1"},
 }
 
 OUT_DIR = "/tmp/render_bench"

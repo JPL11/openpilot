@@ -42,12 +42,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: noterrain-half
+          - name: cheapterrain-half
             render_scale: "0.5"
             no_msaa: "1"
             simple_render: "1"
             no_shadows: "1"
-            no_terrain: "1"
+            cheap_terrain: "1"
     steps:
     - uses: actions/checkout@v6
       with:
@@ -72,6 +72,7 @@ jobs:
         METADRIVE_SIMPLE_RENDER: ${{ matrix.simple_render }}
         METADRIVE_NO_SHADOWS: ${{ matrix.no_shadows }}
         METADRIVE_NO_TERRAIN: ${{ matrix.no_terrain }}
+        METADRIVE_CHEAP_TERRAIN: ${{ matrix.cheap_terrain }}
       run: |
         sudo apt-get install -y sysstat > /dev/null
         uv pip install py-spy

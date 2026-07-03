@@ -22,8 +22,18 @@ class CopyRamRGBCamera(RGBCamera):
       from metadrive.engine.core.terrain import Terrain
       cam = self.get_cam().node()
       cam.setTagStateKey(CameraTagStateKey.RGB)
-      cam.setTagState(Semantics.TERRAIN.label,
-                      Terrain.make_render_state(self.engine, "terrain.vert.glsl", "terrain.frag.glsl"))
+      if os.environ.get("METADRIVE_CHEAP_TERRAIN"):
+        # flat-lit terrain shader, ~2 texture taps per fragment instead of 13+
+        from metadrive.engine.asset_loader import AssetLoader
+        from panda3d.core import NodePath, Shader
+        vert = AssetLoader.file_path("../shaders", "terrain.vert.glsl")
+        frag = os.path.join(os.path.dirname(os.path.abspath(__file__)), "terrain_ci.frag.glsl")
+        dummy_np = NodePath("Dummy")
+        dummy_np.setShader(Shader.load(Shader.SL_GLSL, vert, frag))
+        terrain_state = dummy_np.getState()
+      else:
+        terrain_state = Terrain.make_render_state(self.engine, "terrain.vert.glsl", "terrain.frag.glsl")
+      cam.setTagState(Semantics.TERRAIN.label, terrain_state)
     else:
       super()._setup_effect()
 
