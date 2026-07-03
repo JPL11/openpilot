@@ -27,6 +27,12 @@ jobs:
       run: |
         source openpilot/selfdrive/test/setup_xvfb.sh
         python3 openpilot/tools/sim/tests/render_bench.py
+    - name: Upload frames
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: render-bench-frames-${{ github.run_number }}
+        path: /tmp/render_bench
 
   simulator_driving:
     name: sim driving (${{ matrix.name }})
@@ -36,12 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: noshadow-half
-            render_scale: "0.5"
-            no_msaa: "1"
-            simple_render: "1"
-            no_shadows: "1"
-          - name: noshadow-noterrain-half
+          - name: noterrain-half
             render_scale: "0.5"
             no_msaa: "1"
             simple_render: "1"

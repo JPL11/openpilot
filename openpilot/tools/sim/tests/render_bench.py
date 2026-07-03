@@ -13,6 +13,8 @@ import subprocess
 import sys
 import time
 
+import numpy as np
+
 W, H = 1928, 1208
 
 VARIANTS = {
@@ -25,7 +27,17 @@ VARIANTS = {
                                      "METADRIVE_NO_SHADOWS": "1", "METADRIVE_NO_TERRAIN": "1"},
   "simple-noshadow-quarter":   {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.25",
                                 "METADRIVE_NO_SHADOWS": "1"},
+  "simple-noshadow-noterrain-full": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1",
+                                     "METADRIVE_NO_SHADOWS": "1", "METADRIVE_NO_TERRAIN": "1"},
 }
+
+OUT_DIR = "/tmp/render_bench"
+
+
+def save_ppm(path, img):
+  with open(path, "wb") as f:
+    f.write(b"P6\n%d %d\n255\n" % (img.shape[1], img.shape[0]))
+    f.write(np.ascontiguousarray(img).tobytes())
 
 WARMUP_FRAMES = 30
 BENCH_FRAMES = 100
@@ -48,7 +60,6 @@ def measure():
       self.engine.render.set_shader_inputs(use_pssm=False)
     PSSM.init = pssm_init_no_render
 
-  import numpy as np
   from metadrive.component.map.pg_map import MapGenerateMethod
   from metadrive.envs.metadrive_env import MetaDriveEnv
   from openpilot.tools.sim.bridge.metadrive.metadrive_common import RGBCameraRoad
@@ -101,7 +112,10 @@ def measure():
     return img
 
   for _ in range(WARMUP_FRAMES):
-    frame()
+    img = frame()
+  name = os.environ.get("RENDER_BENCH_NAME", "variant")
+  os.makedirs(OUT_DIR, exist_ok=True)
+  save_ppm(os.path.join(OUT_DIR, f"{name}.ppm"), img)
   t0 = time.monotonic()
   for _ in range(BENCH_FRAMES):
     frame()
@@ -119,6 +133,7 @@ if __name__ == "__main__":
   for name, flags in VARIANTS.items():
     env = os.environ.copy()
     env.update(flags)
+    env["RENDER_BENCH_NAME"] = name
     try:
       out = subprocess.run([sys.executable, os.path.abspath(__file__), "--measure"],
                            env=env, capture_output=True, text=True, timeout=600)
