@@ -36,19 +36,38 @@ jobs:
         BLOCK: soundd
       run: |
         sudo apt-get install -y sysstat > /dev/null
+        uv pip install py-spy
         source openpilot/selfdrive/test/setup_xvfb.sh
         mkdir -p /tmp/sim_profile
         pidstat -u -h -l 2 > /tmp/sim_profile/pidstat.log &
         PIDSTAT=$!
+        pidstat -u -h -t 2 > /tmp/sim_profile/pidstat_threads.log &
+        PIDSTAT_T=$!
         # redirect to a file (not tee): orphaned daemons inheriting the step's
         # stdout pipe would otherwise keep the step alive until timeout
-        pytest -n0 -s openpilot/tools/sim/tests/test_metadrive_bridge.py > /tmp/sim_profile/pytest.log 2>&1 || true
-        kill $PIDSTAT || true
+        pytest -n0 -s openpilot/tools/sim/tests/test_metadrive_bridge.py > /tmp/sim_profile/pytest.log 2>&1 &
+        PYTEST=$!
+        (
+          # t=70s is inside the engagement window (phase 1 takes ~40-60s)
+          sleep 70
+          ps -eLo pid,tid,pcpu,comm --sort=-pcpu | head -30 > /tmp/sim_profile/ps_threads.txt
+          ps -eo pid,pcpu,args --sort=-pcpu | head -12 > /tmp/sim_profile/ps_procs.txt
+          TOP_PIDS=$(ps -eo pid,pcpu,args --sort=-pcpu | grep -E '\.venv/bin/python|modeld' | grep -v grep | head -3 | awk '{print $1}')
+          for pid in $TOP_PIDS; do
+            sudo env "PATH=$PATH" py-spy record -d 40 -r 50 --native -f speedscope \
+              -o /tmp/sim_profile/pyspy_$pid.json --pid $pid > /tmp/sim_profile/pyspy_$pid.err 2>&1 &
+          done
+          wait
+        ) &
+        PROF=$!
+        wait $PYTEST || true
+        kill $PIDSTAT $PIDSTAT_T || true
+        wait $PROF || true
         # kill anything the test teardown missed so later steps don't hang
         pkill -9 -f 'system/manager/manager.py' || true
         pkill -9 -f 'tools/sim' || true
         sleep 2
-        tail -50 /tmp/sim_profile/pytest.log
+        tail -30 /tmp/sim_profile/pytest.log
     - name: Summarize top CPU consumers
       if: always()
       run: |
