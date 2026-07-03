@@ -74,7 +74,6 @@ def measure():
     on_continuous_line_done=False,
     crash_vehicle_done=False,
     crash_object_done=False,
-    arrive_dest_done=False,
     traffic_density=0.0,
     map_config=dict(type=MapGenerateMethod.PG_MAP_FILE, lane_num=2, lane_width=4.5,
                     config=[None, straight(ts), curve(ts * 2, 90), straight(ts), curve(ts * 2, 90),
@@ -124,7 +123,11 @@ if __name__ == "__main__":
       out = subprocess.run([sys.executable, os.path.abspath(__file__), "--measure"],
                            env=env, capture_output=True, text=True, timeout=600)
       line = [l for l in out.stdout.splitlines() if l.startswith("{")]
-      results[name] = json.loads(line[-1])["fps"] if line else f"no output (rc={out.returncode}): {out.stderr[-300:]}"
+      if line:
+        results[name] = json.loads(line[-1])["fps"]
+      else:
+        err = [l for l in out.stderr.splitlines() if l.strip()]
+        results[name] = f"failed (rc={out.returncode}): {' | '.join(err[-5:])[:500]}"
     except Exception as e:
       results[name] = f"error: {e}"
     print(f"{name:35s} {results[name]}", flush=True)
