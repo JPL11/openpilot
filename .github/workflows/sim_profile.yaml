@@ -54,21 +54,23 @@ jobs:
       run: |
         python3 - <<'EOF'
         from collections import defaultdict
-        cpu = defaultdict(float); n = defaultdict(int); peak = defaultdict(float)
+        cpu = defaultdict(float); n = defaultdict(int); peak = defaultdict(float); cmds = {}
         samples = set()
         for line in open('/tmp/sim_profile/pidstat.log'):
             parts = line.split()
             if len(parts) < 10 or parts[0] in ('#', 'Linux'): continue
             try: pct = float(parts[7])
             except ValueError: continue
-            cmd = ' '.join(parts[9:])[:90]
-            samples.add(parts[0]); cpu[cmd] += pct; n[cmd] += 1
-            peak[cmd] = max(peak[cmd], pct)
+            pid = parts[2]
+            samples.add(parts[0]); cpu[pid] += pct; n[pid] += 1
+            peak[pid] = max(peak[pid], pct)
+            cmds[pid] = ' '.join(parts[9:])
         total = max(len(samples), 1)
         print(f'{total} samples @2s, 4 CPUs = 400% budget')
-        print(f"{'mean%':>7} {'peak%':>7} {'nsamp':>5}  command")
-        for cmd, tot in sorted(cpu.items(), key=lambda kv: -kv[1]/total)[:25]:
-            print(f'{tot/total:7.1f} {peak[cmd]:7.1f} {n[cmd]:5d}  {cmd}')
+        print(f"{'pid':>7} {'mean%':>7} {'peak%':>7} {'nsamp':>5}  command")
+        for pid, tot in sorted(cpu.items(), key=lambda kv: -kv[1]/total)[:25]:
+            cmd = cmds[pid].replace('/home/runner/work/openpilot/openpilot/', '')
+            print(f'{pid:>7} {tot/total:7.1f} {peak[pid]:7.1f} {n[pid]:5d}  {cmd[:150]}')
         EOF
     - name: Collect openpilot logs
       if: always()
