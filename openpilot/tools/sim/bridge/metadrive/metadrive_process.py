@@ -59,6 +59,16 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
     loadPrcFileData("", "framebuffer-multisample 0")
     loadPrcFileData("", "multisamples 0")
 
+  if os.environ.get("METADRIVE_TERRAIN_TRIANGLE_WIDTH"):
+    # the terrain is flat, so large screen-space triangles are visually
+    # identical while dividing vertex-shader work by the width ratio squared
+    from metadrive.engine.core.terrain import Terrain
+    _gen_orig = Terrain._generate_mesh_vis_terrain
+    def _gen_coarse(self, size, heightfield, attribute_tex, target_triangle_width=10, engine=None):
+      return _gen_orig(self, size, heightfield, attribute_tex,
+                       target_triangle_width=float(os.environ["METADRIVE_TERRAIN_TRIANGLE_WIDTH"]), engine=engine)
+    Terrain._generate_mesh_vis_terrain = _gen_coarse
+
   if os.environ.get("METADRIVE_NO_SHADOWS"):
     # PSSM renders the scene into a 2-split shadow atlas every frame, which
     # roughly triples scene-pass cost on software rasterizers; deactivate the

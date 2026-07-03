@@ -27,8 +27,15 @@ VARIANTS = {
                                      "METADRIVE_NO_SHADOWS": "1", "METADRIVE_NO_TERRAIN": "1"},
   "simple-noshadow-cheapterrain-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
                                         "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1"},
-  "simple-noshadow-cheapterrain-full": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1",
-                                        "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1"},
+  "cheapterrain-tw40-half":    {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
+                                "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1",
+                                "METADRIVE_TERRAIN_TRIANGLE_WIDTH": "40"},
+  "cheapterrain-tw120-half":   {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
+                                "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1",
+                                "METADRIVE_TERRAIN_TRIANGLE_WIDTH": "120"},
+  "fullterrain-tw120-half":    {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
+                                "METADRIVE_NO_SHADOWS": "1",
+                                "METADRIVE_TERRAIN_TRIANGLE_WIDTH": "120"},
 }
 
 OUT_DIR = "/tmp/render_bench"
@@ -49,6 +56,14 @@ def measure():
     from panda3d.core import loadPrcFileData
     loadPrcFileData("", "framebuffer-multisample 0")
     loadPrcFileData("", "multisamples 0")
+
+  if os.environ.get("METADRIVE_TERRAIN_TRIANGLE_WIDTH"):
+    from metadrive.engine.core.terrain import Terrain
+    _gen_orig = Terrain._generate_mesh_vis_terrain
+    def _gen_coarse(self, size, heightfield, attribute_tex, target_triangle_width=10, engine=None):
+      return _gen_orig(self, size, heightfield, attribute_tex,
+                       target_triangle_width=float(os.environ["METADRIVE_TERRAIN_TRIANGLE_WIDTH"]), engine=engine)
+    Terrain._generate_mesh_vis_terrain = _gen_coarse
 
   if os.environ.get("METADRIVE_NO_SHADOWS"):
     from metadrive.engine.core.pssm import PSSM
