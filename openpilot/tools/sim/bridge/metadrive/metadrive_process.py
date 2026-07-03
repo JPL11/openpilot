@@ -1,6 +1,5 @@
 import math
 import time
-import cv2
 import numpy as np
 
 from collections import namedtuple
@@ -93,7 +92,8 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
     if not isinstance(img, np.ndarray):
       img = img.get() # convert cupy array to numpy
     if img.shape[0] != H or img.shape[1] != W:
-      img = cv2.resize(img, (W, H), interpolation=cv2.INTER_NEAREST)
+      # nearest-neighbor upscale; render size must divide the camera size evenly
+      img = img.repeat(H // img.shape[0], axis=0).repeat(W // img.shape[1], axis=1)
     return img
 
   rk = Ratekeeper(100, None)
