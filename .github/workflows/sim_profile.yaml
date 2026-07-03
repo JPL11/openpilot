@@ -21,9 +21,11 @@ jobs:
         submodules: true
     - run: ./tools/op.sh setup
     - name: Install MetaDrive
-      run: uv pip install "metadrive-simulator @ git+https://github.com/commaai/metadrive.git@minimal"
+      run: uv pip install "metadrive-simulator @ git+https://github.com/commaai/metadrive.git@minimal" py-spy
     - name: Render bench (all variants, same runner)
       timeout-minutes: 35
+      env:
+        RENDER_BENCH_PYSPY: 1
       run: |
         source openpilot/selfdrive/test/setup_xvfb.sh
         python3 openpilot/tools/sim/tests/render_bench.py
@@ -42,13 +44,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: cheapterrain-chunk2048-half
+          - name: cheapterrain-half
             render_scale: "0.5"
             no_msaa: "1"
             simple_render: "1"
             no_shadows: "1"
             cheap_terrain: "1"
-            terrain_chunk: "2048"
     steps:
     - uses: actions/checkout@v6
       with:

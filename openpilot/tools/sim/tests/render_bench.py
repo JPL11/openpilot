@@ -18,25 +18,15 @@ import numpy as np
 W, H = 1928, 1208
 
 VARIANTS = {
-  "baseline":                  {},
-  "simple":                    {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1"},
-  "simple-half":               {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5"},
   "simple-noshadow-half":      {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
                                 "METADRIVE_NO_SHADOWS": "1"},
   "simple-noshadow-noterrain-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
                                      "METADRIVE_NO_SHADOWS": "1", "METADRIVE_NO_TERRAIN": "1"},
   "simple-noshadow-cheapterrain-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
                                         "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1"},
-  "cheapterrain-chunk512-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
-                                 "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1",
-                                 "METADRIVE_TERRAIN_CHUNK_SIZE": "512"},
-  "cheapterrain-chunk2048-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
-                                  "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1",
-                                  "METADRIVE_TERRAIN_CHUNK_SIZE": "2048"},
-  "fullterrain-chunk2048-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
-                                 "METADRIVE_NO_SHADOWS": "1",
-                                 "METADRIVE_TERRAIN_CHUNK_SIZE": "2048"},
 }
+
+PYSPY_VARIANTS = ("simple-noshadow-noterrain-half", "simple-noshadow-cheapterrain-half")
 
 OUT_DIR = "/tmp/render_bench"
 
@@ -163,14 +153,23 @@ if __name__ == "__main__":
     env.update(flags)
     env["RENDER_BENCH_NAME"] = name
     try:
-      out = subprocess.run([sys.executable, os.path.abspath(__file__), "--measure"],
-                           env=env, capture_output=True, text=True, timeout=600)
-      line = [l for l in out.stdout.splitlines() if l.startswith("{")]
+      child = subprocess.Popen([sys.executable, os.path.abspath(__file__), "--measure"],
+                               env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+      prof = None
+      if os.environ.get("RENDER_BENCH_PYSPY") and name in PYSPY_VARIANTS:
+        os.makedirs(OUT_DIR, exist_ok=True)
+        prof = subprocess.Popen(["sudo", "-n", "env", "PATH=" + os.environ["PATH"],
+                                 "py-spy", "record", "--native", "-d", "45", "-r", "50", "-f", "speedscope",
+                                 "-o", os.path.join(OUT_DIR, f"pyspy_{name}.json"), "--pid", str(child.pid)])
+      stdout, stderr = child.communicate(timeout=600)
+      if prof is not None:
+        prof.wait()
+      line = [l for l in stdout.splitlines() if l.startswith("{")]
       if line:
         results[name] = json.loads(line[-1])["fps"]
       else:
-        err = [l for l in out.stderr.splitlines() if l.strip()]
-        results[name] = f"failed (rc={out.returncode}): {' | '.join(err[-5:])[:500]}"
+        err = [l for l in stderr.splitlines() if l.strip()]
+        results[name] = f"failed (rc={child.returncode}): {' | '.join(err[-5:])[:500]}"
     except Exception as e:
       results[name] = f"error: {e}"
     print(f"{name:35s} {results[name]}", flush=True)
