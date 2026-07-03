@@ -1,0 +1,55 @@
+name: sim profile
+
+on:
+  push:
+    branches:
+      - fix-issue-30693
+  workflow_dispatch:
+
+env:
+  CI: 1
+  PYTHONPATH: ${{ github.workspace }}
+
+jobs:
+  simulator_driving:
+    name: simulator driving (profiling baseline)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+    - name: System info
+      run: |
+        nproc
+        lscpu | head -20
+        free -h
+    - run: ./tools/op.sh setup
+    - name: Build openpilot
+      run: scons
+    - name: Driving test with CPU profiling
+      timeout-minutes: 20
+      run: |
+        sudo apt-get install -y sysstat > /dev/null
+        source openpilot/selfdrive/test/setup_xvfb.sh
+        mkdir -p /tmp/sim_profile
+        pidstat -u -r -h 2 > /tmp/sim_profile/pidstat.log &
+        PIDSTAT=$!
+        pytest -s openpilot/tools/sim/tests/test_metadrive_bridge.py 2>&1 | tee /tmp/sim_profile/pytest.log || true
+        kill $PIDSTAT || true
+    - name: Summarize top CPU consumers
+      if: always()
+      run: |
+        echo "=== Top CPU consumers (mean %CPU per command) ==="
+        awk 'NR>1 && $8 ~ /^[0-9.]+$/ {cpu[$NF] += $8; n[$NF]++} END {for (c in cpu) printf "%8.1f%%  %s\n", cpu[c]/n[c], c}' /tmp/sim_profile/pidstat.log | sort -rn | head -25 || true
+    - name: Collect openpilot logs
+      if: always()
+      run: |
+        mkdir -p /tmp/sim_profile/realdata
+        cp -r "$HOME/.comma/media/0/realdata/." /tmp/sim_profile/realdata/ 2>/dev/null || echo "no realdata logs (loggerd blocked)"
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: sim-profile-${{ github.run_number }}
+        path: /tmp/sim_profile
