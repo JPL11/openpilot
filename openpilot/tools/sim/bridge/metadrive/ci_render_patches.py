@@ -38,7 +38,7 @@ def apply_ci_render_patches():
     # time — with a single flat quad carrying the same shader inputs
     from metadrive.constants import CameraTagStateKey
     from metadrive.engine.core.terrain import Terrain
-    from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexData, GeomVertexFormat, GeomVertexWriter
+    from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexData, GeomVertexFormat, GeomVertexWriter, Shader
 
     def _gen_card(self, size, heightfield, attribute_tex, target_triangle_width=10, engine=None):
       engine = engine or self.engine
@@ -58,6 +58,13 @@ def apply_ci_render_patches():
       node.addGeom(geom)
       self._mesh_terrain = self.origin.attach_new_node(node)
       self._mesh_terrain.setTwoSided(True)
+      # base shader for any view without a tag-state override (e.g. the main
+      # window) — the stock terrain shader would assert on missing
+      # ShaderTerrainMesh.* inputs that only the real terrain node provides
+      here = os.path.dirname(os.path.abspath(__file__))
+      self._mesh_terrain.set_shader(Shader.load(Shader.SL_GLSL,
+                                                os.path.join(here, "terrain_card.vert.glsl"),
+                                                os.path.join(here, "terrain_ci.frag.glsl")))
       self._mesh_terrain.setTag(CameraTagStateKey.Semantic, self.SEMANTIC_LABEL)
       self._mesh_terrain.setTag(CameraTagStateKey.RGB, self.SEMANTIC_LABEL)
       self._mesh_terrain.setTag(CameraTagStateKey.Depth, self.SEMANTIC_LABEL)
