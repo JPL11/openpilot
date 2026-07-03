@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 from metadrive.component.sensors.rgb_camera import RGBCamera
@@ -10,6 +11,21 @@ class CopyRamRGBCamera(RGBCamera):
     super().__init__(*args, **kwargs)
     self.cpu_texture = Texture()
     self.buffer.addRenderTexture(self.cpu_texture, GraphicsOutput.RTMCopyRam)
+
+  def _setup_effect(self):
+    if os.environ.get("METADRIVE_SIMPLE_RENDER"):
+      # the default RGBCamera pipeline renders the scene with 16x MSAA into a
+      # float HDR buffer plus a tonemap post-pass, which is prohibitively slow
+      # on software rasterizers (CI); render straight into the 8-bit buffer,
+      # keeping the terrain shader tag so the road still draws correctly
+      from metadrive.constants import CameraTagStateKey, Semantics
+      from metadrive.engine.core.terrain import Terrain
+      cam = self.get_cam().node()
+      cam.setTagStateKey(CameraTagStateKey.RGB)
+      cam.setTagState(Semantics.TERRAIN.label,
+                      Terrain.make_render_state(self.engine, "terrain.vert.glsl", "terrain.frag.glsl"))
+    else:
+      super()._setup_effect()
 
   def get_rgb_array_cpu(self):
     origin_img = self.cpu_texture

@@ -19,12 +19,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: msaa0-full
+          - name: simple-full
             render_scale: "1"
             no_msaa: "1"
-          - name: msaa0-half
+            simple_render: "1"
+          - name: simple-half
             render_scale: "0.5"
             no_msaa: "1"
+            simple_render: "1"
     steps:
     - uses: actions/checkout@v6
       with:
@@ -46,6 +48,7 @@ jobs:
         BLOCK: soundd
         METADRIVE_RENDER_SCALE: ${{ matrix.render_scale }}
         METADRIVE_NO_MSAA: ${{ matrix.no_msaa }}
+        METADRIVE_SIMPLE_RENDER: ${{ matrix.simple_render }}
       run: |
         sudo apt-get install -y sysstat > /dev/null
         uv pip install py-spy
@@ -79,7 +82,10 @@ jobs:
         pkill -9 -f 'system/manager/manager.py' || true
         pkill -9 -f 'tools/sim' || true
         sleep 2
+        sudo dmesg | grep -iE "killed process|out of memory|oom" > /tmp/sim_profile/oom.log || true
         tail -30 /tmp/sim_profile/pytest.log
+        echo "=== render fps lines ==="; grep "render fps" /tmp/sim_profile/pytest.log || true
+        echo "=== OOM check ==="; cat /tmp/sim_profile/oom.log
     - name: Summarize top CPU consumers
       if: always()
       run: |
