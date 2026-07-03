@@ -59,6 +59,19 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
     loadPrcFileData("", "framebuffer-multisample 0")
     loadPrcFileData("", "multisamples 0")
 
+  if os.environ.get("METADRIVE_NO_SHADOWS"):
+    # PSSM renders the scene into a 2-split shadow atlas every frame, which
+    # roughly triples scene-pass cost on software rasterizers; deactivate the
+    # shadow buffer but keep its shader inputs bound so shaders stay valid
+    from metadrive.engine.core.pssm import PSSM
+    pssm_init_orig = PSSM.init
+    def pssm_init_no_render(self):
+      pssm_init_orig(self)
+      self.buffer.set_active(False)
+      self.use_pssm = False
+      self.engine.render.set_shader_inputs(use_pssm=False)
+    PSSM.init = pssm_init_no_render
+
   arrive_dest_done = config.pop("arrive_dest_done", True)
   apply_metadrive_patches(arrive_dest_done)
 

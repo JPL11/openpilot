@@ -19,14 +19,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: simple-full
-            render_scale: "1"
-            no_msaa: "1"
-            simple_render: "1"
-          - name: simple-half
+          - name: noshadow-half
             render_scale: "0.5"
             no_msaa: "1"
             simple_render: "1"
+            no_shadows: "1"
+          - name: noshadow-noterrain-half
+            render_scale: "0.5"
+            no_msaa: "1"
+            simple_render: "1"
+            no_shadows: "1"
+            no_terrain: "1"
     steps:
     - uses: actions/checkout@v6
       with:
@@ -49,6 +52,8 @@ jobs:
         METADRIVE_RENDER_SCALE: ${{ matrix.render_scale }}
         METADRIVE_NO_MSAA: ${{ matrix.no_msaa }}
         METADRIVE_SIMPLE_RENDER: ${{ matrix.simple_render }}
+        METADRIVE_NO_SHADOWS: ${{ matrix.no_shadows }}
+        METADRIVE_NO_TERRAIN: ${{ matrix.no_terrain }}
       run: |
         sudo apt-get install -y sysstat > /dev/null
         uv pip install py-spy

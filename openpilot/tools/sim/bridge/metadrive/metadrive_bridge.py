@@ -92,7 +92,8 @@ class MetaDriveBridge(SimulatorBridge):
       physics_world_step_size=self.TICKS_PER_FRAME/100,
       preload_models=False,
       show_logo=False,
-      anisotropic_filtering=False
+      anisotropic_filtering=False,
+      show_terrain=not bool(os.environ.get("METADRIVE_NO_TERRAIN")),
     )
 
     return MetaDriveWorld(queue, config, self.test_duration, self.test_run, self.dual_camera)
