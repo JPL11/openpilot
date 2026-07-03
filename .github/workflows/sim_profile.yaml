@@ -34,6 +34,8 @@ jobs:
       env:
         # no audio device on CI runners (setup_vsound.sh was removed in #37305)
         BLOCK: soundd
+        # exp: half-res render, upscaled before VisionIPC (llvmpipe cost ~ pixel count)
+        METADRIVE_RENDER_SCALE: 0.5
       run: |
         sudo apt-get install -y sysstat > /dev/null
         uv pip install py-spy

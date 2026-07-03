@@ -1,5 +1,6 @@
 import math
 import time
+import cv2
 import numpy as np
 
 from collections import namedtuple
@@ -91,12 +92,17 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
     img = cam.perceive(to_float=False)
     if not isinstance(img, np.ndarray):
       img = img.get() # convert cupy array to numpy
+    if img.shape[0] != H or img.shape[1] != W:
+      img = cv2.resize(img, (W, H), interpolation=cv2.INTER_NEAREST)
     return img
 
   rk = Ratekeeper(100, None)
 
   steer_ratio = 8
   vc = [0,0]
+
+  render_frames = 0
+  fps_t0 = time.monotonic()
 
   while not exit_event.is_set():
     vehicle_state = metadrive_vehicle_state(
@@ -150,5 +156,11 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
         wide_road_image[...] = get_cam_as_rgb("rgb_wide")
       road_image[...] = get_cam_as_rgb("rgb_road")
       image_lock.release()
+
+      render_frames += 1
+      if render_frames % 100 == 0:
+        now = time.monotonic()
+        print(f"metadrive render fps: {100 / (now - fps_t0):.1f} (target 20)", flush=True)
+        fps_t0 = now
 
     rk.keep_time()
