@@ -31,19 +31,45 @@ jobs:
       run: scons
     - name: Driving test with CPU profiling
       timeout-minutes: 20
+      env:
+        # no audio device on CI runners (setup_vsound.sh was removed in #37305)
+        BLOCK: soundd
       run: |
         sudo apt-get install -y sysstat > /dev/null
         source openpilot/selfdrive/test/setup_xvfb.sh
         mkdir -p /tmp/sim_profile
-        pidstat -u -r -h 2 > /tmp/sim_profile/pidstat.log &
+        pidstat -u -h -l 2 > /tmp/sim_profile/pidstat.log &
         PIDSTAT=$!
-        pytest -s openpilot/tools/sim/tests/test_metadrive_bridge.py 2>&1 | tee /tmp/sim_profile/pytest.log || true
+        # redirect to a file (not tee): orphaned daemons inheriting the step's
+        # stdout pipe would otherwise keep the step alive until timeout
+        pytest -n0 -s openpilot/tools/sim/tests/test_metadrive_bridge.py > /tmp/sim_profile/pytest.log 2>&1 || true
         kill $PIDSTAT || true
+        # kill anything the test teardown missed so later steps don't hang
+        pkill -9 -f 'system/manager/manager.py' || true
+        pkill -9 -f 'tools/sim' || true
+        sleep 2
+        tail -50 /tmp/sim_profile/pytest.log
     - name: Summarize top CPU consumers
       if: always()
       run: |
-        echo "=== Top CPU consumers (mean %CPU per command) ==="
-        awk 'NR>1 && $8 ~ /^[0-9.]+$/ {cpu[$NF] += $8; n[$NF]++} END {for (c in cpu) printf "%8.1f%%  %s\n", cpu[c]/n[c], c}' /tmp/sim_profile/pidstat.log | sort -rn | head -25 || true
+        python3 - <<'EOF'
+        from collections import defaultdict
+        cpu = defaultdict(float); n = defaultdict(int); peak = defaultdict(float)
+        samples = set()
+        for line in open('/tmp/sim_profile/pidstat.log'):
+            parts = line.split()
+            if len(parts) < 10 or parts[0] in ('#', 'Linux'): continue
+            try: pct = float(parts[7])
+            except ValueError: continue
+            cmd = ' '.join(parts[9:])[:90]
+            samples.add(parts[0]); cpu[cmd] += pct; n[cmd] += 1
+            peak[cmd] = max(peak[cmd], pct)
+        total = max(len(samples), 1)
+        print(f'{total} samples @2s, 4 CPUs = 400% budget')
+        print(f"{'mean%':>7} {'peak%':>7} {'nsamp':>5}  command")
+        for cmd, tot in sorted(cpu.items(), key=lambda kv: -kv[1]/total)[:25]:
+            print(f'{tot/total:7.1f} {peak[cmd]:7.1f} {n[cmd]:5d}  {cmd}')
+        EOF
     - name: Collect openpilot logs
       if: always()
       run: |
