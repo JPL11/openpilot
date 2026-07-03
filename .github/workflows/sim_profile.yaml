@@ -12,9 +12,19 @@ env:
 
 jobs:
   simulator_driving:
-    name: simulator driving (profiling baseline)
+    name: sim driving (${{ matrix.name }})
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: msaa0-full
+            render_scale: "1"
+            no_msaa: "1"
+          - name: msaa0-half
+            render_scale: "0.5"
+            no_msaa: "1"
     steps:
     - uses: actions/checkout@v6
       with:
@@ -34,8 +44,8 @@ jobs:
       env:
         # no audio device on CI runners (setup_vsound.sh was removed in #37305)
         BLOCK: soundd
-        # exp: half-res render, upscaled before VisionIPC (llvmpipe cost ~ pixel count)
-        METADRIVE_RENDER_SCALE: 0.5
+        METADRIVE_RENDER_SCALE: ${{ matrix.render_scale }}
+        METADRIVE_NO_MSAA: ${{ matrix.no_msaa }}
       run: |
         sudo apt-get install -y sysstat > /dev/null
         uv pip install py-spy
@@ -102,5 +112,5 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v6
       with:
-        name: sim-profile-${{ github.run_number }}
+        name: sim-profile-${{ github.run_number }}-${{ matrix.name }}
         path: /tmp/sim_profile

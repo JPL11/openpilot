@@ -1,4 +1,5 @@
 import math
+import os
 import time
 import numpy as np
 
@@ -51,6 +52,13 @@ def apply_metadrive_patches(arrive_dest_done=True):
 def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera_array, image_lock,
                       controls_recv: Connection, simulation_state_send: Connection, vehicle_state_send: Connection,
                       exit_event, op_engaged, test_duration, test_run):
+  if os.environ.get("METADRIVE_NO_MSAA"):
+    # metadrive's EngineCore forces 8x MSAA at import time; Prc settings are
+    # last-write-wins, so this must load before the engine is created
+    from panda3d.core import loadPrcFileData
+    loadPrcFileData("", "framebuffer-multisample 0")
+    loadPrcFileData("", "multisamples 0")
+
   arrive_dest_done = config.pop("arrive_dest_done", True)
   apply_metadrive_patches(arrive_dest_done)
 
