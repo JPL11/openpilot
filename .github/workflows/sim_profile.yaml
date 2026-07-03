@@ -87,7 +87,20 @@ jobs:
         PIDSTAT=$!
         # message-rate probe: which services actually flow, and how fast
         python3 - > /tmp/sim_profile/rates.log 2>&1 <<'RATES' &
+        import glob
+        import os
         import time
+        # pytest runs the daemons in an isolated msgq namespace — discover it
+        prefix_dir = None
+        for _ in range(600):
+          dirs = glob.glob("/dev/shm/msgq_*")
+          if dirs:
+            prefix_dir = dirs[0]
+            break
+          time.sleep(0.5)
+        if prefix_dir:
+          os.environ["OPENPILOT_PREFIX"] = os.path.basename(prefix_dir)[len("msgq_"):]
+        print("joined prefix:", os.environ.get("OPENPILOT_PREFIX"), flush=True)
         from openpilot.cereal import messaging
         SERVICES = ["modelV2", "cameraOdometry", "liveCalibration", "livePose", "liveDelay",
                     "liveParameters", "liveTorqueParameters", "roadCameraState", "carState", "selfdriveState"]
