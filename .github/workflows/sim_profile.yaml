@@ -71,6 +71,8 @@ jobs:
       env:
         # no audio device on CI runners (setup_vsound.sh was removed in #37305)
         BLOCK: soundd
+        # capture qlog/rlog/camera files for the artifact requirement
+        CI_SIM_LOGS: 1
         METADRIVE_RENDER_SCALE: ${{ matrix.render_scale }}
         METADRIVE_NO_MSAA: ${{ matrix.no_msaa }}
         METADRIVE_SIMPLE_RENDER: ${{ matrix.simple_render }}
@@ -80,6 +82,9 @@ jobs:
         METADRIVE_FLAT_TERRAIN_CARD: ${{ matrix.flat_terrain_card }}
       run: |
         sudo apt-get install -y sysstat > /dev/null
+        # self-diagnosing core dumps for any native crash (e.g. transient modeld death)
+        ulimit -c unlimited
+        sudo sysctl -w kernel.core_pattern='/tmp/sim_profile/core.%e.%p' > /dev/null
         source openpilot/selfdrive/test/setup_xvfb.sh
         # pre-download metadrive assets so the test's startup window isn't
         # spent on a ~17s download
@@ -156,11 +161,30 @@ jobs:
             cmd = cmds[pid].replace('/home/runner/work/openpilot/openpilot/', '')
             print(f'{pid:>7} {tot/total:7.1f} {peak[pid]:7.1f} {n[pid]:5d}  {cmd[:150]}')
         EOF
+    - name: Backtrace any core dumps
+      if: always()
+      run: |
+        shopt -s nullglob
+        cores=(/tmp/sim_profile/core.*)
+        if [ ${#cores[@]} -gt 0 ]; then
+          sudo apt-get install -y gdb > /dev/null
+          for c in "${cores[@]}"; do
+            echo "=== $c ==="
+            exe=$(file "$c" | grep -oP "execfn: '\K[^']+") || exe=python3
+            gdb -batch -ex "thread apply all bt" "$exe" "$c" 2>/dev/null | head -60
+          done
+        else
+          echo "no core dumps"
+        fi
     - name: Collect openpilot logs
       if: always()
       run: |
         mkdir -p /tmp/sim_profile/realdata
-        cp -r "$HOME/.comma/media/0/realdata/." /tmp/sim_profile/realdata/ 2>/dev/null || echo "no realdata logs (loggerd blocked)"
+        # pytest runs under an OPENPILOT_PREFIX, so the comma dir is suffixed
+        cp -r "$HOME"/.comma*/media/0/realdata/. /tmp/sim_profile/realdata/ 2>/dev/null || echo "no realdata logs"
+        ls -laR /tmp/sim_profile/realdata | head -40
+        # cores are large; keep only backtraces in artifacts
+        rm -f /tmp/sim_profile/core.*
     - name: Upload artifacts
       if: always()
       uses: actions/upload-artifact@v6
