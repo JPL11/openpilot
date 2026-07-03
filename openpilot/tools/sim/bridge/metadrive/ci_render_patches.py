@@ -36,7 +36,7 @@ def apply_ci_render_patches():
     # the PG-map terrain is flat (physics already uses a plane); replace the
     # chunked ShaderTerrainMesh — whose draw path dominates LLVMpipe frame
     # time — with a single flat quad carrying the same shader inputs
-    from metadrive.constants import CameraTagStateKey
+    from metadrive.constants import CameraTagStateKey, CamMask
     from metadrive.engine.core.terrain import Terrain
     from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexData, GeomVertexFormat, GeomVertexWriter, Shader
 
@@ -58,9 +58,11 @@ def apply_ci_render_patches():
       node.addGeom(geom)
       self._mesh_terrain = self.origin.attach_new_node(node)
       self._mesh_terrain.setTwoSided(True)
-      # base shader for any view without a tag-state override (e.g. the main
-      # window) — the stock terrain shader would assert on missing
-      # ShaderTerrainMesh.* inputs that only the real terrain node provides
+      # the main window camera's RGB tag state applies the stock terrain
+      # shader, which asserts on ShaderTerrainMesh.* inputs only the real
+      # terrain node provides — hide the card from it (the openpilot sensor
+      # cameras carry their own tag state with the card shaders)
+      self._mesh_terrain.hide(CamMask.MainCam)
       here = os.path.dirname(os.path.abspath(__file__))
       self._mesh_terrain.set_shader(Shader.load(Shader.SL_GLSL,
                                                 os.path.join(here, "terrain_card.vert.glsl"),
