@@ -24,9 +24,13 @@ VARIANTS = {
                                      "METADRIVE_NO_SHADOWS": "1", "METADRIVE_NO_TERRAIN": "1"},
   "simple-noshadow-cheapterrain-half": {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
                                         "METADRIVE_NO_SHADOWS": "1", "METADRIVE_CHEAP_TERRAIN": "1"},
+  "flatcard-half":             {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1", "METADRIVE_RENDER_SCALE": "0.5",
+                                "METADRIVE_NO_SHADOWS": "1", "METADRIVE_FLAT_TERRAIN_CARD": "1"},
+  "flatcard-full":             {"METADRIVE_SIMPLE_RENDER": "1", "METADRIVE_NO_MSAA": "1",
+                                "METADRIVE_NO_SHADOWS": "1", "METADRIVE_FLAT_TERRAIN_CARD": "1"},
 }
 
-PYSPY_VARIANTS = ("simple-noshadow-noterrain-half", "simple-noshadow-cheapterrain-half")
+PYSPY_VARIANTS = ()
 
 OUT_DIR = "/tmp/render_bench"
 
@@ -41,42 +45,9 @@ BENCH_FRAMES = 100
 
 
 def measure():
-  # env flags must be set before these imports (Prc data loads at import time)
-  if os.environ.get("METADRIVE_NO_MSAA"):
-    from panda3d.core import loadPrcFileData
-    loadPrcFileData("", "framebuffer-multisample 0")
-    loadPrcFileData("", "multisamples 0")
-
-  if os.environ.get("METADRIVE_TERRAIN_TRIANGLE_WIDTH") or os.environ.get("METADRIVE_TERRAIN_CHUNK_SIZE"):
-    from metadrive.constants import CameraTagStateKey
-    from metadrive.engine.core.terrain import Terrain
-    from panda3d.core import SamplerState
-    def _gen_coarse(self, size, heightfield, attribute_tex, target_triangle_width=10, engine=None):
-      engine = engine or self.engine
-      heightfield.wrap_u = SamplerState.WM_clamp
-      heightfield.wrap_v = SamplerState.WM_clamp
-      self._mesh_terrain_node.heightfield = heightfield
-      self._mesh_terrain_node.setTargetTriangleWidth(float(os.environ.get("METADRIVE_TERRAIN_TRIANGLE_WIDTH", target_triangle_width)))
-      self._mesh_terrain_node.setChunkSize(int(os.environ.get("METADRIVE_TERRAIN_CHUNK_SIZE", "128")))
-      self._mesh_terrain_node.generate()
-      self._mesh_terrain = self.origin.attach_new_node(self._mesh_terrain_node)
-      self._mesh_terrain.setTag(CameraTagStateKey.Semantic, self.SEMANTIC_LABEL)
-      self._mesh_terrain.setTag(CameraTagStateKey.RGB, self.SEMANTIC_LABEL)
-      self._mesh_terrain.setTag(CameraTagStateKey.Depth, self.SEMANTIC_LABEL)
-      self._set_terrain_shader(engine, attribute_tex)
-      self._mesh_terrain.set_scale(size, size, self._height_scale)
-      self._mesh_terrain.set_pos(-size / 2, -size / 2, 0)
-    Terrain._generate_mesh_vis_terrain = _gen_coarse
-
-  if os.environ.get("METADRIVE_NO_SHADOWS"):
-    from metadrive.engine.core.pssm import PSSM
-    pssm_init_orig = PSSM.init
-    def pssm_init_no_render(self):
-      pssm_init_orig(self)
-      self.buffer.set_active(False)
-      self.use_pssm = False
-      self.engine.render.set_shader_inputs(use_pssm=False)
-    PSSM.init = pssm_init_no_render
+  # env flags must be applied before the engine is created
+  from openpilot.tools.sim.bridge.metadrive.ci_render_patches import apply_ci_render_patches
+  apply_ci_render_patches()
 
   from metadrive.component.map.pg_map import MapGenerateMethod
   from metadrive.envs.metadrive_env import MetaDriveEnv

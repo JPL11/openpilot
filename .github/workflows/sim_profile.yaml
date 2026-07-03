@@ -44,12 +44,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: cheapterrain-half
+          - name: flatcard-half
             render_scale: "0.5"
             no_msaa: "1"
             simple_render: "1"
             no_shadows: "1"
-            cheap_terrain: "1"
+            flat_terrain_card: "1"
     steps:
     - uses: actions/checkout@v6
       with:
@@ -75,8 +75,7 @@ jobs:
         METADRIVE_NO_SHADOWS: ${{ matrix.no_shadows }}
         METADRIVE_NO_TERRAIN: ${{ matrix.no_terrain }}
         METADRIVE_CHEAP_TERRAIN: ${{ matrix.cheap_terrain }}
-        METADRIVE_TERRAIN_TRIANGLE_WIDTH: ${{ matrix.terrain_tw }}
-        METADRIVE_TERRAIN_CHUNK_SIZE: ${{ matrix.terrain_chunk }}
+        METADRIVE_FLAT_TERRAIN_CARD: ${{ matrix.flat_terrain_card }}
       run: |
         sudo apt-get install -y sysstat > /dev/null
         uv pip install py-spy
