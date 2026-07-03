@@ -91,8 +91,11 @@ jobs:
         from openpilot.cereal import messaging
         SERVICES = ["modelV2", "cameraOdometry", "liveCalibration", "livePose", "liveDelay",
                     "liveParameters", "liveTorqueParameters", "roadCameraState", "carState", "selfdriveState"]
-        socks = {s: messaging.sub_sock(s, conflate=False) for s in SERVICES}
         while True:
+          # recreate sockets each window: publishers may not exist yet when
+          # the probe starts, and msgq segments are created by the publisher
+          socks = {s: messaging.sub_sock(s, conflate=False) for s in SERVICES}
+          time.sleep(0.2)
           t0 = time.monotonic()
           counts = dict.fromkeys(SERVICES, 0)
           while time.monotonic() - t0 < 5:
@@ -100,6 +103,7 @@ jobs:
               counts[s] += len(messaging.drain_sock_raw(sock))
             time.sleep(0.05)
           print(time.strftime("%H:%M:%S"), {s: round(c / 5.0, 1) for s, c in counts.items()}, flush=True)
+          del socks
         RATES
         RATEPROBE=$!
         # redirect to a file (not tee): orphaned daemons inheriting the step's
