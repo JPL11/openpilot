@@ -62,9 +62,9 @@ jobs:
     - run: ./tools/op.sh setup
     - name: Install MetaDrive
       run: uv pip install "metadrive-simulator @ git+https://github.com/commaai/metadrive.git@minimal"
-    - name: Build openpilot (BEAM-tuned model kernels)
+    - name: Build openpilot (clang CPU backend experiment)
       run: |
-        sed -i "s/'DEV=CPU:LLVM'/'DEV=CPU:LLVM BEAM=2'/" openpilot/selfdrive/modeld/SConscript
+        sed -i "s/'DEV=CPU:LLVM'/'DEV=CPU'/" openpilot/selfdrive/modeld/SConscript
         scons
     - name: Driving test with CPU profiling
       timeout-minutes: 20
