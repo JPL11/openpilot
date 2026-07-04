@@ -131,7 +131,7 @@ jobs:
         mkdir -p /tmp/sim_profile/realdata
         (
           while true; do
-            cp -ru "$HOME"/.comma*/media/0/realdata/. /tmp/sim_profile/realdata/ 2>/dev/null || true
+            rsync -a --exclude='fcamera.hevc*' --exclude='*.lock' "$HOME"/.comma*/media/0/realdata/ /tmp/sim_profile/realdata/ 2>/dev/null || true
             sleep 5
           done
         ) &
@@ -140,8 +140,9 @@ jobs:
         # stdout pipe would otherwise keep the step alive until timeout
         pytest -n0 -s openpilot/tools/sim/tests/test_metadrive_bridge.py > /tmp/sim_profile/pytest.log 2>&1 || true
         kill $PIDSTAT $RATEPROBE $LOGCOPIER || true
-        # one final sweep in case anything remains
-        cp -ru "$HOME"/.comma*/media/0/realdata/. /tmp/sim_profile/realdata/ 2>/dev/null || true
+        # one final sweep in case anything remains (full-res video excluded:
+        # ~1 GB for 80 s; qcamera.ts + qlog + rlog cover the artifact needs)
+        rsync -a --exclude='fcamera.hevc*' --exclude='*.lock' "$HOME"/.comma*/media/0/realdata/ /tmp/sim_profile/realdata/ 2>/dev/null || true
         # kill anything the test teardown missed so later steps don't hang
         pkill -9 -f 'system/manager/manager.py' || true
         pkill -9 -f 'tools/sim' || true
